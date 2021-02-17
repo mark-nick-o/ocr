@@ -72,7 +72,7 @@ cat butter5-eng.txt
 tesseract /mnt/c/linuxmirror/CW109.jpg butter6-eng -l eng
 echo " ====== tesseract : butter label 3 ===== "
 cat butter6-eng.txt 
-tesseract /mnt/c/linuxmirror/CW110jpg butter7-eng -l eng
+tesseract /mnt/c/linuxmirror/CW110.jpg butter7-eng -l eng
 echo " ====== tesseract : butter label 3 invert rotate ===== "
 cat butter7-eng.txt 
 tesseract /mnt/c/linuxmirror/CW111.jpg butter8-eng -l eng
