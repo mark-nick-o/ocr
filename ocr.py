@@ -188,6 +188,8 @@ gradient = np.dstack([gradx, grady])
 # some further interesting info in matlab can be found here
 # http://people.vision.caltech.edu/~harel/share/gbvs.php
 #
+im2 = cv2.imread('/mnt/c/linuxmirror/pic1.jpg')
+im = cv2.resize(im2,(300,300))
 imgsize = im.shape
 img_width  = imgsize[1]
 img_height = imgsize[0]
