@@ -592,6 +592,36 @@ d_s = cv2.sumElems(diffimg)
 shap = frame.shape
 d = (d_s[0]+d_s[1]+d_s[2])/(shap[0]*shap[1])
 print("total distance fram 1 to 3 is :",d,d1+d2,d1-(d1+d2))
+#
+# now look at people dancing (changes are seen)
+#
+im = cv2.imread('/mnt/c/linuxmirror/dance1.jpg')
+im_prev = cv2.imread('/mnt/c/linuxmirror/dance2.jpg')
+frame = cv2.resize(im,(312,164))
+frame_old = cv2.resize(im_prev,(312,164))
+diffimg = cv2.absdiff(frame, frame_old)
+d_s = cv2.sumElems(diffimg)
+shap = frame.shape
+d2 = (d_s[0]+d_s[1]+d_s[2])/(shap[0]*shap[1])
+print("distance frame 1 to 2 is :",d2)
+im = cv2.imread('/mnt/c/linuxmirror/dance2.jpg')
+im_prev = cv2.imread('/mnt/c/linuxmirror/dance3.jpg')
+frame = cv2.resize(im,(312,164))
+frame_old = cv2.resize(im_prev,(312,164))
+diffimg = cv2.absdiff(frame, frame_old)
+d_s = cv2.sumElems(diffimg)
+shap = frame.shape
+d2 = (d_s[0]+d_s[1]+d_s[2])/(shap[0]*shap[1])
+print("distance frame 2 to 3 is :",d2)
+im = cv2.imread('/mnt/c/linuxmirror/dance1.jpg')
+im_prev = cv2.imread('/mnt/c/linuxmirror/dance3.jpg')
+frame = cv2.resize(im,(312,164))
+frame_old = cv2.resize(im_prev,(312,164))
+diffimg = cv2.absdiff(frame, frame_old)
+d_s = cv2.sumElems(diffimg)
+shap = frame.shape
+d2 = (d_s[0]+d_s[1]+d_s[2])/(shap[0]*shap[1])
+print("distance frame 2 to 3 is :",d2)
 
 #
 # use the modified kirsch to look at edging
