@@ -202,6 +202,66 @@ bm = cv2.imwrite('/mnt/c/linuxmirror/binarized.jpg', binarized_map)
 sr_rgb = cv2.cvtColor(salient_region, cv2.COLOR_BGR2RGB) 
 sr = cv2.imwrite('/mnt/c/linuxmirror/salient_reg.jpg', sr_rgb)   
 
+#
+# resize the milk bottle label to be read by tesseract
+# rotate to make font more readable by the ocr
+# make 2 different size pictures to read whole text and invert
+#
+im2 = cv2.imread('/mnt/c/linuxmirror/CW118.jpg')
+im3 = cv2.resize(im2,(1800,1449))
+#im3 = cv2.resize(im2,(1200,900))
+angleInDegrees = 1.5
+# scale if you want here we do no change at value 1.0 unity
+scale = 1.0 
+(h, w) = im3.shape[:2]  
+center=tuple(np.array([h,w])/2)
+# Perform the rotation
+M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
+rotated = cv2.warpAffine(im3, M, (w, h))
+# filter
+gbresult = gaussian_filter(rotated, sigma=-2)
+# write it out inverted
+mb = cv2.imwrite('/mnt/c/linuxmirror/CW118_r.jpg', ~gbresult) 
+# repeat for the image not resized (reads other text)
+(h, w) = im2.shape[:2]  
+center=tuple(np.array([h,w])/2)
+M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
+rotated = cv2.warpAffine(im2, M, (w, h))
+gbresult = gaussian_filter(rotated, sigma=-2)
+mb = cv2.imwrite('/mnt/c/linuxmirror/CW118_r2.jpg', ~gbresult) 
+#
+# this one shows how to read the curved label
+# (need to make automated proceedure for flattening out label)
+# 
+im2 = cv2.imread('/mnt/c/linuxmirror/CW119_t.jpg')
+im3 = cv2.resize(im2,(1200,900))
+mb = cv2.imwrite('/mnt/c/linuxmirror/CW119_r.jpg', ~im3) 
+# =========== try to automate reading the farm label ===================
+im2 = cv2.imread('/mnt/c/linuxmirror/CW119.jpg') 
+(h, w) = im2.shape[:2]
+# drag the shape out a bit 
+print(im2.shape)
+im3 = cv2.resize(im2,(int(w*8),int(h*4)))
+(h, w) = im3.shape[:2]
+center=tuple(np.array([h,w])/2)
+M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
+rotated = cv2.warpAffine(im3, M, (w, h))
+# filter
+gbresult = gaussian_filter(rotated, sigma=-2)
+mb = cv2.imwrite('/mnt/c/linuxmirror/CW119_r2.jpg', ~gbresult) 
+# ------- now stretch that more ---------
+# drag the shape out a bit 
+(h, w) = im2.shape[:2]
+#im3 = cv2.resize(im2,(int(w*10),int(h*6)))
+im3 = cv2.resize(im2,(int(w*8),int(h*6)))
+(h, w) = im3.shape[:2]
+center=tuple(np.array([h,w])/2)
+M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
+rotated = cv2.warpAffine(im3, M, (w, h))
+# filter
+gbresult = gaussian_filter(rotated, sigma=-2)
+mb = cv2.imwrite('/mnt/c/linuxmirror/CW119_r3.jpg', ~gbresult) 
+
 # if you are using a webcam then uncomment it here
         # exit if the key "q" is pressed
 #        if cv2.waitKey(1) & 0xFF == ord('q'):
