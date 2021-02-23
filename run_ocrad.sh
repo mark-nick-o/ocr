@@ -123,3 +123,32 @@ cat pdf-eng.txt
 # and use it like to say the last file outloud
 # espeak -f pdf-eng.txt
 #
+
+#
+# example showing re-sized milk bottle label
+# this one was hard to read and required some manipulation
+# in the calling openCV script (more than 1 rotate, size or invert)
+#
+tesseract /mnt/c/linuxmirror/CW119.jpg milk1-eng -l eng
+echo " ====== tesseract : milk bottle 1 original ===== "
+cat milk1-eng.txt
+tesseract /mnt/c/linuxmirror/CW118.jpg milk2-eng -l eng
+echo " ====== tesseract : milk bottle 2 original ===== "
+cat milk2-eng.txt
+tesseract /mnt/c/linuxmirror/CW119_r.jpg milk1-eng -l eng
+echo " ====== tesseract : milk bottle 1 rotated re-sized shows how to read label ===== "
+cat milk1-eng.txt
+tesseract /mnt/c/linuxmirror/CW118_r.jpg milk2-eng -l eng
+echo " ====== tesseract : milk bottle 2 rotated and enlarged ===== "
+echo " got this from first picture "
+cat milk2-eng.txt
+tesseract /mnt/c/linuxmirror/CW118_r2.jpg milk3-eng -l eng
+echo " got this from second picture "
+cat milk3-eng.txt
+echo " ====== tesseract : milk bottle 1 trying to read the farm id ===== "
+tesseract /mnt/c/linuxmirror/CW119_r2.jpg milk4-eng -l eng
+echo " try to extract the farm label "
+cat milk4-eng.txt
+tesseract /mnt/c/linuxmirror/CW119_r3.jpg milk5-eng -l eng
+echo " 2nd pass "
+cat milk5-eng.txt
