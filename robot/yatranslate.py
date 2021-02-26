@@ -1,5 +1,4 @@
-#!/usr/bin/python3.4
-#!/usr/bin/python3.4
+#!/usr/bin/python3
  
 import urllib.request
 import urllib.parse
@@ -19,7 +18,6 @@ import sys
 #
 APIKEY='trnsl.1.1.20151211T093839Z.8d3588d6cfec6343.3c4423c7f871b1263a5eaf3d3660226649fd53db'
 APIKEY2='trnsl.1.1.20190308T095934Z.95ae5cf4e28588ea.9d108fb6e768af347464925e4e98b91edb0013f5'
-
 
 try:
     TEXT = urllib.parse.quote(sys.argv[1])
@@ -48,7 +46,7 @@ if LANG == 'ru':
     # set the language to convert russian to english
     LANG = 'en'
 elif LANG == '':
-    print("language not defined")
+    print("language not defined or invalid API key")
     sys.exit(0)
 else:
     # otherwise set the language to russian
