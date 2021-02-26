@@ -1,10 +1,10 @@
 #!/bin/bash
  
-text=`xsel -o`
+#text=`xsel -o`
  
-if [ "$text" == "" ]; then
-	exit 0
-fi
+#if [ "$text" == "" ]; then
+#	exit 0
+#fi
  
 translated=`/home/mark/pics/yatranslate.py "$text"`
  
