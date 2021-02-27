@@ -20,6 +20,11 @@ here a robot using the machine vision may read various labels of sizes and shape
 the initial iterator.py script will rotate those labels and try to read and translate the text
 to determine in ranking what it has discovered and if it matches definitions of the requested type
 
+command line usage :: python iterator.py path_to_files/pic_file_name <optional language code | ocrad>
+you can choose language of picture you want to translate
+Japan / Spain / France / Germany / Russia / Italy
+or if you pass ocrad it will use ocrad ocr instead of default english language and tesseract ocr
+
 this has some decent success (apart from in japanese)
 
 a 2nd take will be made to automatically re-size images and feed them back into the rotate reader when the iamge can not be read as it comes
