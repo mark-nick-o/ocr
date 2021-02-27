@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import sys
 from scipy.ndimage import gaussian_filter
+import re
 
 # ======================================================================
 #
@@ -20,20 +21,77 @@ if (len(sys.argv) - 1) <= 0:
     print("please pass the filename for the screenshot you want to analyse")
     sys.exit()
 
-# enumerate possible variation types to omit
+# ------------- Get Flavor if there is one -----------------------------
+# enumerate possible variation types which are flavors to omit
+# it can be the product but is a variant with these key words
 BanaValue = 1
 MintValue = 2
 ChocValue = 3
-SheepValue = 4
-GoatValue = 5
-WoodValue = 6
-CamelValue = 7
+WoodValue = 4
+BlueValue = 5                                                           #blueberries / mirtili
+MochaValue = 6
+StrawBryVal = 7
+OrangeValue = 8
+PeachValue = 9
+LemonValue = 10
+ApricotValue = 11
+PearValue = 12
+AppleValue = 13
+RaspberryValue = 14
+NumOfFlavors = 20                                                       # leave for 6 spare flavors for now
 
+# ------------- Get alternate source if there is one -------------------
+# enumerate possible variation types which are sources to omit
+# it can be the product but is a variant with these key words
+CowValue = 0
+SheepValue = 2
+GoatValue = 1
+DonkeyValue = 3
+BuffaloValue = 4
+SoyValue = 5
+AlmondValue = 6
+RiceValue = 7
+CamelValue = 8
+NumOfVariants = 10
+ 
+variaMilkStart = 30
+variationStart = (NumOfVariants*NumOfFlavors) + NumOfFlavors
+
+# ------------ Identify Product ----------------------------------------
 # enumerate possible wrong products to omit
+# the description was matched but if we have these strings its not what 
+# we are looking for
+#
+# we are just identifying the single product for eliminaiton from the rank
+# ignores type and flavor attribute (dont have flavors)
+#
+CreamValue = 0
 ButterValue = 1
-SoapValue = 2
-CheeseValue = 3
+CheeseValue = 2
+SoapValue = 3
 ShampooValue = 4
+#- not in engine (an italian cheese)
+Ravaggiolo = 5
+Balsam = 6
+Liqor = 7
+# grappa / grappe
+Grappa = 8
+# cream / flower (used for fior di latte)
+Shower = 9
+Kefir = 10
+Biscuit = 11
+# yogurt is last one in this sequence as it can also have a flavor attribute 
+# (in all these cases above we are ignoring the flavor attribute)
+# we are still ignoring the type attribute
+#
+Yogurt = 12
+# chocolate is a product derived from phrasing and this time we are listing 
+# the types of the item not the flavors
+# 
+ChocoBar=20
+NumOfProducts = ChocoBar
+
+wrongStart = ((NumOfVariants*NumOfFlavors) + (NumOfFlavors*2)) 
 
 # ------- read in the requested iamge ---------
 fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
@@ -44,6 +102,14 @@ if os.path.isfile(fileNam) == False:
     sys.exit()
 im2 = cv2.imread(fileNam) 
 
+# ----- adaptive gaussian thresholding -----------------------------
+#img = cv2.medianBlur(im2,5)
+#ret,th1 = cv2.threshold(img,127,255,cv2.THRESH_BINARY)
+# ----- adaptive mean thresholding ---------------------------------
+#th2 = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+# ----- adaptive gaussian thresholding -----------------------------
+#th3 = cv2.adaptiveThreshold(img,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C,cv2.THRESH_BINARY,11,2)
+    
 # read size & set up the variance we wish to make in order to read the label
 (h, w) = im2.shape[:2]
 #
@@ -63,9 +129,11 @@ angleStep = 0.1
 # to get a result
 # default : 10
 #
-# for image CW200 we need to make at least 30 to read milk from the 
+# for image 253.jpg we need to make at least 30 to read milk from the 
 # bottle and get class 12 returned, due to the picture angle on the original
 # being so tilted
+#
+# image 24.jpg needed value of 15 this was enough to read tilted vollmilch
 #
 numOfIerations = 10
 # (10 * 0.1) means +/- 1 degree in either direction 
@@ -80,6 +148,7 @@ productFound = -1                                                       # valid
 productVariation = -1                                                   # next best suggestion
 productWrong = -1                                                       # another product 
 productFlavor = -1                                                      # another flavour eliminates correct wording 
+productType = -1                                                        # source of milk e.g. goat, sheep, donkey
 
 # search string e.g. supplier
 sFound1 = -1
@@ -89,6 +158,14 @@ stringFound = -1
 
 # general product search
 generalFound = -1
+
+# phrase selection in english language "milk chocolate"
+# note if required needs to be done separate in each lanuage
+# e.g. cioccolata il latte di pecora
+# chocolate milk sheep when tarnslated does not work
+#
+chocoPhrase = 0
+noFlavor = 0
 
 # iterate up for one degree at a time until the string searched for was seen 
 # or we exceeded the number of rotations in that direction
@@ -102,13 +179,25 @@ for x in range(numOfIerations):
     center=tuple(np.array([h,w])/2)
     M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
     rotated = cv2.warpAffine(im2, M, (w, h))
+    # erosion to thin font if needed 
+    # for example on image 33
+    #kernel = np.ones((5,5),np.uint8)
+    #erosion = cv2.erode(im2,kernel,iterations = 3)
+    #dilated = cv2.dilate(rotated,kernel,iterations = 1)
     # filter
     gbresult = gaussian_filter(rotated, sigma=-2)
-    mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.jpg', ~gbresult) 
+    #gbresult = gaussian_filter(erosion, sigma=-2)
+
+    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.pnm', im_rgb)
+    else:
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.jpg', ~gbresult) 
+
     if (len(sys.argv)-1) == 1:
         f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_lefti.jpg')
-    elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_lefti.jpg ' + sys.argv[2] 
+    elif (len(sys.argv)-1) == 2:                                        # argument is country code or ocrad
+        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_lefti ' + sys.argv[2]     
         f = os.popen(cmd)
     strFound = f.read()
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
@@ -138,30 +227,79 @@ for x in range(numOfIerations):
         productVariation = 0   
                 
     # variants containg the words but not the product    
-    # variants of products that may contain the correct words but not be the correct product    
+    # variants of products that may contain the correct words but not be the correct product   
+    
+    # cream must be exact matched to remove creamery being a match
+    pattern = re.compile(r"\bcream\b")
+     
     if not strFound.find("BUTTER") == -1 or not strFound.find("Butter") == -1  or not strFound.find("butter") == -1:
 	    productWrong = ButterValue
-    if not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
 	    productWrong = SoapValue
-    if not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
+    elif not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
 	    productWrong = ShampooValue
-    if not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
+    elif not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
 	    productWrong = CheeseValue
+    elif not strFound.find("RAVAGGIOLO") == -1 or not strFound.find("Ravaggiolo") == -1 or not strFound.find("ravaggiolo") == -1:
+        productWrong = Ravaggiolo
+    elif not strFound.find("BALSAM") == -1 or not strFound.find("Balsam") == -1 or not strFound.find("balsam") == -1:
+        productWrong = Balsam
+    elif not strFound.find("GRAPPA") == -1 or not strFound.find("Grappa") == -1 or not strFound.find("grappa") == -1 or not strFound.find("GRAPPE") == -1 or not strFound.find("Grappe") == -1 or not strFound.find("grappe") == -1:
+        productWrong = Grappa
+    elif re.search(pattern, strFound.lower()) or not strFound.find("flower") == -1 or not strFound.find("Flower") == -1 or not strFound.find("FLOWER") == -1:
+        productWrong = CreamValue  
+    elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
+        productWrong = Yogurt
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+        productWrong = SoapValue
+    elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
+        productWrong = Shower
+    elif not strFound.find("KEFIR") == -1 or not strFound.find("Kefir") == -1 or not strFound.find("kefir") == -1:
+        productWrong = Kefir
+    elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
+        productWrong = Biscuit   
+                                  	    
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+        productType = GoatValue
+    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
+        productType = SheepValue
+    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
+        productType = CamelValue
+    elif not strFound.find("Donkey") == -1 or not strFound.find("DONKEY") == -1 or not strFound.find("donkey") == -1:
+        productType = DonkeyValue
+    elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
+        productType = BuffaloValue
+                
     if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
         productFlavor = MintValue
-    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1:
+    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
-    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1:
+    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1 or not strFound.find("banana") == -1:
         productFlavor = BanaValue	
     elif (not strFound.find("Wood") == -1 and not strFound.find("Amish")) or (not strFound.find("AMISH") and not strFound.find("WOOD") == -1):
         productFlavor = WoodValue	
-    elif not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
-        productFlavor = GoatValue
-    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
-        productFlavor = SheepValue
-    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
-        productFlavor = CamelValue
+    elif not strFound.find("Blue") == -1 or not strFound.find("BLUE") == -1 or not strFound.find("blue") == -1 or not strFound.find("Mirtili") == -1 or not strFound.find("MIRTILI") == -1 or not strFound.find("mirtili") == -1:
+        productFlavor = BlueValue
+    elif not strFound.find("Mocha") == -1 or not strFound.find("MOCHA") == -1 or not strFound.find("mocha") == -1 or not strFound.find("Coffee") == -1 or not strFound.find("COFFEE") == -1 or not strFound.find("coffee") == -1:
+        productFlavor = MochaValue
+    elif not strFound.find("Straw") == -1 or not strFound.find("STRAW") == -1 or not strFound.find("straw") == -1:
+        productFlavor = StrawBryVal
+    elif not strFound.find("Orange") == -1 or not strFound.find("ORANGE") == -1 or not strFound.find("orange") == -1:
+        productFlavor = OrangeValue
+    elif not strFound.find("Peach") == -1 or not strFound.find("PEACH") == -1 or not strFound.find("peach") == -1:
+        productFlavor = PeachValue
+    elif not strFound.find("Lemon") == -1 or not strFound.find("LEMON") == -1 or not strFound.find("lemon") == -1:
+        productFlavor = LemonValue
+    elif not strFound.find("Apricot") == -1 or not strFound.find("APRICOT") == -1 or not strFound.find("apricot") == -1:
+        productFlavor = ApricotValue
+    elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
+        productFlavor = PearValue
+    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+        productFlavor = AppleValue
+    elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
+        productFlavor = RaspberryValue
+        
     #
     # ==================================================================
     #
@@ -186,11 +324,49 @@ for x in range(numOfIerations):
         sFound2 = 0		
     if not sFound1 == -1 and not sFound2 == -1:                         # full farm product manufacturer met
         stringFound = 0
-   
+
+    # ------------- look for general product match ---------------------           
     # look for general product (russian text translation was not working so hardcoded it)
     if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("молоко") == -1:
         generalFound = 0
     #
+    # ------------- example of phrase selection ------------------------
+    #
+    # we look for milk chocolate in one phrase (resets every picture) 
+    # but not with flavor to mean chocolate not milk
+    # Phrase = "milk chocolate"
+    # this works for english language and phrasing is differnet in other languages 
+    #
+    # this version splits the entire result and compares words
+    # then i thought the 2nd method would be much faster
+    #
+    #if not chocoPhrase == 2:
+    #    i = 0
+    #    inWordArray = strFound.split()
+    #    sizeOfList = len(inWordArray)
+    #    while i < sizeOfList:
+    #        if not inWordArray[i].find("Milk") == -1 or not inWordArray[i].find("MILK") == -1 or not inWordArray[i].find("milk") == -1:			         
+    #            milkOrder = i
+    #        if not inWordArray[i].find("Chocolate") == -1 or not inWordArray[i].find("CHOCOLATE") == -1 or not inWordArray[i].find("chocolate") == -1:			         
+    #            chocOrder = i
+    #        i += 1 
+    #    if milkOrder < chocOrder:
+    #        chocoPhrase = 2                                             # latch that we say the phrase "milk" then "chocolate"
+    #
+    # alternate : should be faster
+    # we dont bother splitting them (use logical AND to see least value)
+    #
+    if not chocoPhrase == 2:    
+        milkPosn = strFound.find("Milk") & strFound.find("MILK") & strFound.find("milk")
+        chocPosn = strFound.find("Chocolate") & strFound.find("CHOCOLATE") & strFound.find("chocolate")
+        # print("===== milk %s =====choc %s ========" % (milkPosn , chocPosn))
+        if (not milkPosn == -1 and not chocPosn == -1) and (milkPosn < chocPosn):
+            chocoPhrase = 2
+    
+    # if we see flavor the phrase (for milk chocolate) is invalid "milk chocolate flavor" "whole milk flavour : chocolate" is then back to milk rather than bar of chocolate
+    if not strFound.find("Flavor") == -1 or not strFound.find("FLAVOR") == -1 or not strFound.find("flavour") == -1 or not strFound.find("flavor") == -1 or not strFound.find("Flavour") == -1 or not strFound.find("FLAVOUR") == -1:
+        noFlavor = 1
+                    
     # found the string and the product on the label
     #
     if not stringFound == -1 and not productFound == -1:
@@ -199,11 +375,16 @@ for x in range(numOfIerations):
     #        
     # now repeat for the iamge NOT inverted
     #
-    mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.jpg', gbresult) 
+    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+        im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.pnm', im_rgb)
+    else:
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.jpg', gbresult) 
+        		
     if (len(sys.argv)-1) == 1:
         f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_left.jpg')
     elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_left.jpg ' + sys.argv[2] 
+        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_left ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
@@ -232,29 +413,76 @@ for x in range(numOfIerations):
         productVariation = 0   
                 
     # variants of products that may contain the correct words but not the correct product    
+    # cream must be exact matched to remove creamery being a match
+    pattern = re.compile(r"\bcream\b")
+     
     if not strFound.find("BUTTER") == -1 or not strFound.find("Butter") == -1  or not strFound.find("butter") == -1:
 	    productWrong = ButterValue
-    if not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
 	    productWrong = SoapValue
-    if not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
+    elif not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
 	    productWrong = ShampooValue
-    if not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
+    elif not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
 	    productWrong = CheeseValue
+    elif not strFound.find("RAVAGGIOLO") == -1 or not strFound.find("Ravaggiolo") == -1 or not strFound.find("ravaggiolo") == -1:
+        productWrong = Ravaggiolo
+    elif not strFound.find("BALSAM") == -1 or not strFound.find("Balsam") == -1 or not strFound.find("balsam") == -1:
+        productWrong = Balsam
+    elif not strFound.find("GRAPPA") == -1 or not strFound.find("Grappa") == -1 or not strFound.find("grappa") == -1 or not strFound.find("GRAPPE") == -1 or not strFound.find("Grappe") == -1 or not strFound.find("grappe") == -1:
+        productWrong = Grappa
+    elif re.search(pattern, strFound.lower()) or not strFound.find("flower") == -1 or not strFound.find("Flower") == -1 or not strFound.find("FLOWER") == -1:
+        productWrong = CreamValue  
+    elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
+        productWrong = Yogurt
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+        productWrong = SoapValue
+    elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
+        productWrong = Shower
+    elif not strFound.find("KEFIR") == -1 or not strFound.find("Kefir") == -1 or not strFound.find("kefir") == -1:
+        productWrong = Kefir
+    elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
+        productWrong = Biscuit 
+
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+        productType = GoatValue
+    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
+        productType = SheepValue
+    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
+        productType = CamelValue
+    elif not strFound.find("Donkey") == -1 or not strFound.find("DONKEY") == -1 or not strFound.find("donkey") == -1:
+        productType = DonkeyValue
+    elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
+        productType = BuffaloValue
+                
     if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
         productFlavor = MintValue
-    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1:
+    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
-    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1:
+    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1 or not strFound.find("banana") == -1:
         productFlavor = BanaValue	
     elif (not strFound.find("Wood") == -1 and not strFound.find("Amish")) or (not strFound.find("AMISH") and not strFound.find("WOOD") == -1):
         productFlavor = WoodValue	
-    elif not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
-        productFlavor = GoatValue
-    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
-        productFlavor = SheepValue
-    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
-        productFlavor = CamelValue
+    elif not strFound.find("Blue") == -1 or not strFound.find("BLUE") == -1 or not strFound.find("blue") == -1 or not strFound.find("Mirtili") == -1 or not strFound.find("MIRTILI") == -1 or not strFound.find("mirtili") == -1:
+        productFlavor = BlueValue
+    elif not strFound.find("Mocha") == -1 or not strFound.find("MOCHA") == -1 or not strFound.find("mocha") == -1 or not strFound.find("Coffee") == -1 or not strFound.find("COFFEE") == -1 or not strFound.find("coffee") == -1:
+        productFlavor = MochaValue
+    elif not strFound.find("Straw") == -1 or not strFound.find("STRAW") == -1 or not strFound.find("straw") == -1:
+        productFlavor = StrawBryVal
+    elif not strFound.find("Orange") == -1 or not strFound.find("ORANGE") == -1 or not strFound.find("orange") == -1:
+        productFlavor = OrangeValue
+    elif not strFound.find("Peach") == -1 or not strFound.find("PEACH") == -1 or not strFound.find("peach") == -1:
+        productFlavor = PeachValue
+    elif not strFound.find("Lemon") == -1 or not strFound.find("LEMON") == -1 or not strFound.find("lemon") == -1:
+        productFlavor = LemonValue
+    elif not strFound.find("Apricot") == -1 or not strFound.find("APRICOT") == -1 or not strFound.find("apricot") == -1:
+        productFlavor = ApricotValue
+    elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
+        productFlavor = PearValue
+    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+        productFlavor = AppleValue
+    elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
+        productFlavor = RaspberryValue
     #
     # ==================================================================
     #
@@ -305,13 +533,24 @@ for x in range(numOfIerations):
     center=tuple(np.array([h,w])/2)
     M = cv2.getRotationMatrix2D(center, angleInDegrees, scale)
     rotated = cv2.warpAffine(im2, M, (w, h))
-    # filter
+    # ----- erosion to thin font if needed -----------------------------
+    # for example on image 33
+    #kernel = np.ones((5,5),np.uint8)
+    #erosion = cv2.erode(rotated,kernel,iterations = 3)
+    #dilated = cv2.dilate(rotated,kernel,iterations = 1)
+    # ----- filter -----------------------------------------------------
     gbresult = gaussian_filter(rotated, sigma=-2)
-    mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.jpg', ~gbresult)  
+    #gbresult = gaussian_filter(erosion, sigma=-2)
+    
+    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.pnm', im_rgb)
+    else:
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.jpg', ~gbresult)  
     if (len(sys.argv)-1) == 1:
         f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_righti.jpg')
     elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_righti.jpg ' + sys.argv[2] 
+        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_righti ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
     print ("The following text was read rotating backward invert : ", strFound, angleInDegrees)
@@ -341,29 +580,76 @@ for x in range(numOfIerations):
                 
     # variants containg the words but not the product    
     # variants of products that may contain the correct words but not the correct product    
+    # cream must be exact matched to remove creamery being a match
+    pattern = re.compile(r"\bcream\b")
+     
     if not strFound.find("BUTTER") == -1 or not strFound.find("Butter") == -1  or not strFound.find("butter") == -1:
 	    productWrong = ButterValue
-    if not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
 	    productWrong = SoapValue
-    if not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
+    elif not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
 	    productWrong = ShampooValue
-    if not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
+    elif not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
 	    productWrong = CheeseValue
+    elif not strFound.find("RAVAGGIOLO") == -1 or not strFound.find("Ravaggiolo") == -1 or not strFound.find("ravaggiolo") == -1:
+        productWrong = Ravaggiolo
+    elif not strFound.find("BALSAM") == -1 or not strFound.find("Balsam") == -1 or not strFound.find("balsam") == -1:
+        productWrong = Balsam
+    elif not strFound.find("GRAPPA") == -1 or not strFound.find("Grappa") == -1 or not strFound.find("grappa") == -1 or not strFound.find("GRAPPE") == -1 or not strFound.find("Grappe") == -1 or not strFound.find("grappe") == -1:
+        productWrong = Grappa
+    elif re.search(pattern, strFound.lower()) or not strFound.find("flower") == -1 or not strFound.find("Flower") == -1 or not strFound.find("FLOWER") == -1:
+        productWrong = CreamValue  
+    elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
+        productWrong = Yogurt
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+        productWrong = SoapValue
+    elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
+        productWrong = Shower
+    elif not strFound.find("KEFIR") == -1 or not strFound.find("Kefir") == -1 or not strFound.find("kefir") == -1:
+        productWrong = Kefir
+    elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
+        productWrong = Biscuit  
+
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+        productType = GoatValue
+    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
+        productType = SheepValue
+    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
+        productType = CamelValue
+    elif not strFound.find("Donkey") == -1 or not strFound.find("DONKEY") == -1 or not strFound.find("donkey") == -1:
+        productType = DonkeyValue
+    elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
+        productType = BuffaloValue
+                
     if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
         productFlavor = MintValue
-    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1:
+    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
-    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1:
+    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1 or not strFound.find("banana") == -1:
         productFlavor = BanaValue	
     elif (not strFound.find("Wood") == -1 and not strFound.find("Amish")) or (not strFound.find("AMISH") and not strFound.find("WOOD") == -1):
         productFlavor = WoodValue	
-    elif not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
-        productFlavor = GoatValue
-    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
-        productFlavor = SheepValue
-    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
-        productFlavor = CamelValue
+    elif not strFound.find("Blue") == -1 or not strFound.find("BLUE") == -1 or not strFound.find("blue") == -1 or not strFound.find("Mirtili") == -1 or not strFound.find("MIRTILI") == -1 or not strFound.find("mirtili") == -1:
+        productFlavor = BlueValue
+    elif not strFound.find("Mocha") == -1 or not strFound.find("MOCHA") == -1 or not strFound.find("mocha") == -1 or not strFound.find("Coffee") == -1 or not strFound.find("COFFEE") == -1 or not strFound.find("coffee") == -1:
+        productFlavor = MochaValue
+    elif not strFound.find("Straw") == -1 or not strFound.find("STRAW") == -1 or not strFound.find("straw") == -1:
+        productFlavor = StrawBryVal
+    elif not strFound.find("Orange") == -1 or not strFound.find("ORANGE") == -1 or not strFound.find("orange") == -1:
+        productFlavor = OrangeValue
+    elif not strFound.find("Peach") == -1 or not strFound.find("PEACH") == -1 or not strFound.find("peach") == -1:
+        productFlavor = PeachValue
+    elif not strFound.find("Lemon") == -1 or not strFound.find("LEMON") == -1 or not strFound.find("lemon") == -1:
+        productFlavor = LemonValue
+    elif not strFound.find("Apricot") == -1 or not strFound.find("APRICOT") == -1 or not strFound.find("apricot") == -1:
+        productFlavor = ApricotValue
+    elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
+        productFlavor = PearValue
+    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+        productFlavor = AppleValue
+    elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
+        productFlavor = RaspberryValue
     #
     # ==================================================================
     #
@@ -397,11 +683,16 @@ for x in range(numOfIerations):
     if not stringFound == -1 and not productFound == -1:
         x = 12 
 
-    mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.jpg', gbresult)  
+    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+        im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.pnm', im_rgb)
+    else:
+        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.jpg', gbresult)  
+        
     if (len(sys.argv)-1) == 1:
         f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_right.jpg')
     elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_right.jpg ' + sys.argv[2] 
+        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_right ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
     print ("The following text was read rotating backward  : ", strFound, angleInDegrees)
@@ -430,30 +721,78 @@ for x in range(numOfIerations):
         productVariation = 0   
                 
     # variants containg the words but not the product    
-    # variants of products that may contain the correct words but not the correct product    
+    # variants of products that may contain the correct words but not the correct product 
+       
+    # cream must be exact matched to prevent creamery being a match
+    pattern = re.compile(r"\bcream\b")
+     
     if not strFound.find("BUTTER") == -1 or not strFound.find("Butter") == -1  or not strFound.find("butter") == -1:
 	    productWrong = ButterValue
-    if not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
 	    productWrong = SoapValue
-    if not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
+    elif not strFound.find("SHAMPOO") == -1 or not strFound.find("Shampoo") == -1 or not strFound.find("shampoo") == -1:
 	    productWrong = ShampooValue
-    if not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
+    elif not strFound.find("CHEESE") == -1 or not strFound.find("Cheese") == -1 or not strFound.find("cheese") == -1:
 	    productWrong = CheeseValue
+    elif not strFound.find("RAVAGGIOLO") == -1 or not strFound.find("Ravaggiolo") == -1 or not strFound.find("ravaggiolo") == -1:
+        productWrong = Ravaggiolo
+    elif not strFound.find("BALSAM") == -1 or not strFound.find("Balsam") == -1 or not strFound.find("balsam") == -1:
+        productWrong = Balsam
+    elif not strFound.find("GRAPPA") == -1 or not strFound.find("Grappa") == -1 or not strFound.find("grappa") == -1 or not strFound.find("GRAPPE") == -1 or not strFound.find("Grappe") == -1 or not strFound.find("grappe") == -1:
+        productWrong = Grappa
+    elif re.search(pattern, strFound.lower()) or not strFound.find("flower") == -1 or not strFound.find("Flower") == -1 or not strFound.find("FLOWER") == -1:
+        productWrong = CreamValue  
+    elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
+        productWrong = Yogurt
+    elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
+        productWrong = SoapValue
+    elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
+        productWrong = Shower
+    elif not strFound.find("KEFIR") == -1 or not strFound.find("Kefir") == -1 or not strFound.find("kefir") == -1:
+        productWrong = Kefir
+    elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
+        productWrong = Biscuit  
+        
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+        productType = GoatValue
+    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
+        productType = SheepValue
+    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
+        productType = CamelValue
+    elif not strFound.find("Donkey") == -1 or not strFound.find("DONKEY") == -1 or not strFound.find("donkey") == -1:
+        productType = DonkeyValue
+    elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
+        productType = BuffaloValue
+                
     if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
         productFlavor = MintValue
-    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1:
+    elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
-    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1:
-        productFlavor = BanaValue	
+    elif not strFound.find("BANANA") == -1 or not strFound.find("Banana") == -1 or not strFound.find("banana") == -1:
+       productFlavor = BanaValue	
     elif (not strFound.find("Wood") == -1 and not strFound.find("Amish")) or (not strFound.find("AMISH") and not strFound.find("WOOD") == -1):
         productFlavor = WoodValue	
-    elif not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
-        productFlavor = GoatValue
-    elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
-        productFlavor = SheepValue
-    elif not strFound.find("Camel") == -1 or not strFound.find("CAMEL") == -1 or not strFound.find("camel") == -1:
-        productFlavor = CamelValue
+    elif not strFound.find("Blue") == -1 or not strFound.find("BLUE") == -1 or not strFound.find("blue") == -1 or not strFound.find("Mirtili") == -1 or not strFound.find("MIRTILI") == -1 or not strFound.find("mirtili") == -1:
+        productFlavor = BlueValue
+    elif not strFound.find("Mocha") == -1 or not strFound.find("MOCHA") == -1 or not strFound.find("mocha") == -1 or not strFound.find("Coffee") == -1 or not strFound.find("COFFEE") == -1 or not strFound.find("coffee") == -1:
+        productFlavor = MochaValue
+    elif not strFound.find("Straw") == -1 or not strFound.find("STRAW") == -1 or not strFound.find("straw") == -1:
+        productFlavor = StrawBryVal
+    elif not strFound.find("Orange") == -1 or not strFound.find("ORANGE") == -1 or not strFound.find("orange") == -1:
+        productFlavor = OrangeValue
+    elif not strFound.find("Peach") == -1 or not strFound.find("PEACH") == -1 or not strFound.find("peach") == -1:
+        productFlavor = PeachValue
+    elif not strFound.find("Lemon") == -1 or not strFound.find("LEMON") == -1 or not strFound.find("lemon") == -1:
+        productFlavor = LemonValue
+    elif not strFound.find("Apricot") == -1 or not strFound.find("APRICOT") == -1 or not strFound.find("apricot") == -1:
+        productFlavor = ApricotValue
+    elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
+        productFlavor = PearValue
+    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+        productFlavor = AppleValue
+    elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
+        productFlavor = RaspberryValue
     #
     # ==================================================================
     #
@@ -493,11 +832,23 @@ for x in range(numOfIerations):
 # organic whole milk = product
 # ivy house or berkerley farm = supplier
 # we are able to read the bottles in eng,fra,jpn,rus,ger,spa,ita
-# 
-if not productWrong == -1:                                              # a wrong product word had been detected which eliminates the product
-    retVal = 30 + productWrong                                          # wrong product was found i.e butter (even if it says organic whole milk farm)
-    print(retVal)
-elif productFlavor == -1:                                                 # no product variance occurred
+#
+# useful debug
+print("==== product type %s =====" % productType)
+print("==== product flavor %s =====" % productFlavor)
+print("==== product wrong %s =====" % productWrong)
+
+if chocoPhrase == 2 and noFlavor == 0:                                  # we saw milk chocolate and not any mention of flavor
+    print("==== bar of %s milk chocolate ===== " % productType)
+    retVal = wrongStart + ChocoBar + NumOfFlavors + productType         # if it was a bar of chocolate set to wrong product and specify type e.g sheeps milk chocolate (posn after yogurt)
+    print(retVal)	
+elif not productWrong == -1:                                            # a wrong product word had been detected which eliminates the product
+    if productWrong == Yogurt:
+	    retVal = wrongStart + productWrong + productFlavor              # because yoghurt also has a flavor so list them
+    else:
+        retVal = wrongStart + productWrong                              # wrong product was found i.e butter (even if it says organic whole milk farm)
+        print(retVal)
+elif productFlavor == -1:                                               # no product variance occurred
     if not stringFound == -1 and not productFound == -1:                # the product and supplier was found - dedicated farm, organic whole milk
 	    print("1")
     elif stringFound == -1 and not sFound1 == -1 and not productFound == -1:# the product was found from another farm supplier (farm organic whole milk)
@@ -519,13 +870,21 @@ elif productFlavor == -1:                                                 # no p
     elif not pFound3 == -1 and stringFound == -1 and productFound == -1 and not generalFound == -1: # the supplier not was farm but similar product (keyword - raw milk)
         print("10")  
     elif stringFound == -1 and productFound == -1 and not generalFound == -1: # the supplier not was farm but similar product (keyword - milk)
-        print("11")   
+        if not productType == -1:                                       # we had a source variance e.g. goat, sheep, donkey so bias by that to show this in the result
+            milkType = productType + 11                                 
+        else:
+            milkType = 11                                               # product description just milk
+        print(milkType)   
     else:
-        print("12")                                                     # no match ( if we get no output from the ocr we need to enter a re-sizing method to get sensible ocr reader working)
+        milkType = 10 + NumOfVariants 
+        print(milkType)                                                 # no match ( if we get no output from the ocr we need to enter a re-sizing method to get sensible ocr reader working)
 else:
     if not generalFound == -1:                                          # it was a milk
-        retVal = 20 + productFlavor                                     # return another product code (the flavor or variant of the product i.e. cow goat camel)
+        if not productType == -1:                                       # from another source than a cow offset the start by the source type
+            retVal = ((productType * 10) + 10) + variaMilkStart + productFlavor				
+        else:
+            retVal = variaMilkStart + productFlavor                     # return another product code (the flavor or variant of the product i.e. mint goat camel)
         print(retVal)
     else:
-	    retVal = 40 + productFlavor                                     # saw a keyword without milk (e.g. cheese chocolate goat)
+	    retVal = variationStart + productFlavor                         # saw a keyword without milk (e.g. cheese chocolate goat)
 	    print(retVal)
