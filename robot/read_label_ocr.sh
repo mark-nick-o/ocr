@@ -4,6 +4,9 @@
 # Run the tesseract ocr and print the result on file if you omit  
 # extension you get .jpg file
 #
+# if you need co-ordinates in the image for a text you can use hocr option 
+# with tesseract to give an xml output called .hocr
+#
 
 case $2 in
 
@@ -53,6 +56,8 @@ case $2 in
     [ "$numFields" -eq 2 ] && [ -f /mnt/c/linuxmirror/$1 ] && tesseract /mnt/c/linuxmirror/$1 $1-deu -l deu
     # use dict to translate - noticed you might have joined words which skipped trans engine so did a grep for :- (word contains "milch")
     [ -f $1-deu.txt ] && dict -d fd-deu-eng `cat $1-deu.txt` 
+    [ -f $1-deu.txt ] && cat $1-deu.txt | tr [:lower:] [:upper:] | grep VOLLMILCH && [ $? -eq 0 ] && echo "Whole Milk"   # dict wrongly says unskimmed ? okay if voll milch
+    [ -f $1-deu.txt ] && cat $1-deu.txt | tr [:lower:] [:upper:] | grep ROHMILCH && [ $? -eq 0 ] && echo "Raw Milk" && rm $1-deu.txt && exit # dict missed it
     [ -f $1-deu.txt ] && cat $1-deu.txt | tr [:lower:] [:upper:] | grep MILCH && [ $? -eq 0 ] && echo Milk && rm $1-deu.txt
     # could also use trans (look below if you want to choose the translator engine default:google requires net connection)
     # [ -f $1-deu.txt ] && trans de: `cat $1-deu.txt` && rm $1-deu.txt
@@ -65,7 +70,9 @@ case $2 in
     [ "$numFields" -eq 1 ] && [ -f /mnt/c/linuxmirror/$1.jpg ] && tesseract /mnt/c/linuxmirror/$1.jpg $1-ita -l ita
     [ "$numFields" -eq 2 ] && [ -f /mnt/c/linuxmirror/$1 ] && tesseract /mnt/c/linuxmirror/$1 $1-ita -l ita
     # use dict to translate - noticed you might have joined words which skipped trans engine so did a grep for :- (word contains "latte")
-    [ -f $1-ita.txt ] && dict -d fd-ita-eng `cat $1-ita.txt` 
+    [ -f $1-ita.txt ] && dict -d fd-ita-eng `cat $1-ita.txt`
+    [ -f $1-ita.txt ] && cat $1-ita.txt | tr [:lower:] [:upper:] | grep "SOLO NATURA" && [ $? -eq 0 ] && echo Organic 
+    [ -f $1-ita.txt ] && cat $1-ita.txt | tr [:lower:] [:upper:] | grep "CIOCCOLATO" && [ $? -eq 0 ] && echo Chocolate
     [ -f $1-ita.txt ] && cat $1-ita.txt | tr [:lower:] [:upper:] | grep LATTE && [ $? -eq 0 ] && echo Milk && rm $1-ita.txt
     # could also use trans (look below if you want to choose the translator engine default:google requires net connection)
     # [ -f $1-ita.txt ] && trans it: `cat $1-ita.txt` && rm $1-ita.txt
@@ -88,6 +95,13 @@ case $2 in
     [ -f $1-rus.txt ] && cat $1-rus.txt && rm $1-rus.txt
     ;;
 
+   # choose to use the ocrad ocr instead
+  ocrad)
+    numFields=`echo $1 | awk '-F.' '{ print NF }'`
+    [ "$numFields" -eq 1 ] && [ -f /mnt/c/linuxmirror/$1.pnm ] && ocrad --format=utf8 /mnt/c/linuxmirror/$1.pnm 
+    [ "$numFields" -eq 2 ] && [ -f /mnt/c/linuxmirror/$1 ] && ocrad --format=utf8 /mnt/c/linuxmirror/$1 
+    ;;
+    
   *)
     [ -f $1-eng.txt ] && rm $1-eng.txt 
     numFields=`echo $1 | awk '-F.' '{ print NF }'`
