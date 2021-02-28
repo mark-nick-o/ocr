@@ -5,6 +5,20 @@ import sys
 from scipy.ndimage import gaussian_filter
 import re
 
+#
+# ----------------------------------------------------------------------
+# add for windows support of tesseract ocr (install it first)
+# and also the python extension
+# pip install pytesseract
+# ----------------------------------------------------------------------
+#
+# import pytesseract
+# 
+# pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+#
+# choose the config language you want
+# config = r'--oem 3 --psm 6'
+
 # ======================================================================
 #
 # The mind for this robot vision reader is to look for a product
@@ -188,6 +202,7 @@ for x in range(numOfIerations):
     gbresult = gaussian_filter(rotated, sigma=-2)
     #gbresult = gaussian_filter(erosion, sigma=-2)
 
+    # ------------------ for linux -------------------------------------
     if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
         im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
         mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.pnm', im_rgb)
@@ -200,6 +215,26 @@ for x in range(numOfIerations):
         cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_lefti ' + sys.argv[2]     
         f = os.popen(cmd)
     strFound = f.read()
+    #
+    # --------------------- for windows --------------------------------
+    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
+    #if (len(sys.argv)-1) == 2:
+	#    if not sys.argv[2].find("fr") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+    #    elif not sys.argv[2].find("de") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+    #    elif not sys.argv[2].find("it") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+    #    elif not sys.argv[2].find("jp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+    #    elif not sys.argv[2].find("ru") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+    #    elif not sys.argv[2].find("sp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+    #else:
+    #    strFound = pytesseract.image_to_string(im_rgb)		 
+                                                 
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -375,6 +410,8 @@ for x in range(numOfIerations):
     #        
     # now repeat for the iamge NOT inverted
     #
+    # --------------- for linux ----------------------------------------
+    #
     if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
         im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
         mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.pnm', im_rgb)
@@ -387,6 +424,26 @@ for x in range(numOfIerations):
         cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_left ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
+    #
+    # --------------------- for windows --------------------------------
+    #
+    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
+    #if (len(sys.argv)-1) == 2:
+	#    if not sys.argv[2].find("fr") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+    #    elif not sys.argv[2].find("de") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+    #    elif not sys.argv[2].find("it") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+    #    elif not sys.argv[2].find("jp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+    #    elif not sys.argv[2].find("ru") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+    #    elif not sys.argv[2].find("sp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+    #else:
+    #    strFound = pytesseract.image_to_string(im_rgb)
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -542,6 +599,8 @@ for x in range(numOfIerations):
     gbresult = gaussian_filter(rotated, sigma=-2)
     #gbresult = gaussian_filter(erosion, sigma=-2)
     
+    # ------------------ for linux -------------------------------------
+    #
     if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
         im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
         mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.pnm', im_rgb)
@@ -553,6 +612,26 @@ for x in range(numOfIerations):
         cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_righti ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
+    #
+    # --------------------- for windows --------------------------------
+    #
+    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
+    #if (len(sys.argv)-1) == 2:
+	#    if not sys.argv[2].find("fr") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+    #    elif not sys.argv[2].find("de") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+    #    elif not sys.argv[2].find("it") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+    #    elif not sys.argv[2].find("jp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+    #    elif not sys.argv[2].find("ru") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+    #    elif not sys.argv[2].find("sp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+    #else:
+    #    strFound = pytesseract.image_to_string(im_rgb)
     print ("The following text was read rotating backward invert : ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -683,6 +762,8 @@ for x in range(numOfIerations):
     if not stringFound == -1 and not productFound == -1:
         x = 12 
 
+    # ------------------- for linux ------------------------------------
+    #
     if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
         im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
         mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.pnm', im_rgb)
@@ -695,6 +776,26 @@ for x in range(numOfIerations):
         cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_right ' + sys.argv[2] 
         f = os.popen(cmd)
     strFound = f.read()
+    #
+    # --------------------- for windows --------------------------------
+    #
+    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
+    #if (len(sys.argv)-1) == 2:
+	#    if not sys.argv[2].find("fr") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+    #    elif not sys.argv[2].find("de") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+    #    elif not sys.argv[2].find("it") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+    #    elif not sys.argv[2].find("jp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+    #    elif not sys.argv[2].find("ru") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+    #    elif not sys.argv[2].find("sp") == -1: 
+    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+    #else:
+    #    strFound = pytesseract.image_to_string(im_rgb)
     print ("The following text was read rotating backward  : ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
