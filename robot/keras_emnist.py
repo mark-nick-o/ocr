@@ -257,10 +257,11 @@ if __name__ == "__main__":
     # ------- read in the requested iamge ---------
     fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
     if os.path.isfile(fileNam) == False:
-	    fileNam = fileNam + ".jpg"
+        fileNam = fileNam + ".jpg"
     if os.path.isfile(fileNam) == False:
         print("invalid file name or path %s" % fileNam)	
         sys.exit()
         
     s_out = img_to_str(model, fileNam)
     print(s_out)
+
