@@ -243,19 +243,21 @@ def img_to_str(model: Any, image_file: str):
 if __name__ == "__main__":
 
     if (len(sys.argv) - 1) <= 0:
-        print("please pass the filename for the screenshot you want to read with keras emnist")
+        print("please pass the filename for the screenshot you want to read with keras emnist or --TRAIN")
+        sys.exit()
+    
+    if not sys.argv[1].find("--TRAIN") == -1:                           # to train the model pass --TRAIN    
+        model = emnist_model()
+        emnist_train(model)
+        model.save('emnist_letters.h5')
         sys.exit()
         
-    # model = emnist_model()
-    # emnist_train(model)
-    # model.save('emnist_letters.h5')
-
     model = keras.models.load_model('emnist_letters.h5')
     
     # ------- read in the requested iamge ---------
     fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
     if os.path.isfile(fileNam) == False:
-        fileNam = fileNam + ".jpg"
+	    fileNam = fileNam + ".jpg"
     if os.path.isfile(fileNam) == False:
         print("invalid file name or path %s" % fileNam)	
         sys.exit()
