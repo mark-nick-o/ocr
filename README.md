@@ -34,6 +34,8 @@ by using the unwrapper for bottles some labels now read better these have been a
 
 a 2nd take will be made to automatically re-size images and feed them back into the rotate reader when the iamge can not be read as it comes
 
+its also possible to use Extended MNIST (EMNIST) using Neural Network (CNN) for Recognition
+
 a script will be made in an attempt to read the circle text if possible
 
 if you got espeak you can read them out or write them to a brialle keyboard if you're for example use this nice one 
