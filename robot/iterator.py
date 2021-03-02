@@ -1,24 +1,3 @@
-import os
-import numpy as np
-import cv2
-import sys
-from scipy.ndimage import gaussian_filter
-import re
-
-#
-# ----------------------------------------------------------------------
-# add for windows support of tesseract ocr (install it first)
-# and also the python extension
-# pip install pytesseract
-# ----------------------------------------------------------------------
-#
-# import pytesseract
-# 
-# pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
-#
-# choose the config language you want
-# config = r'--oem 3 --psm 6'
-
 # ======================================================================
 #
 # The mind for this robot vision reader is to look for a product
@@ -28,8 +7,36 @@ import re
 # the module uses rotation and inversion to look at the image
 #
 # re-sizer module operates on image from outside this reader
+# unwrapper module also operates from outside this reader
+#
+# so far not bad success on reading and categorising all the images
+# correctly
 #
 # ======================================================================
+
+import os
+import platform
+import numpy as np
+import cv2
+import sys
+from scipy.ndimage import gaussian_filter
+import re
+
+syst=platform.system()
+#
+# ----------------------------------------------------------------------
+# add for windows support of tesseract ocr (install it first)
+# and also the python extension
+# pip install pytesseract
+# conda install -c conda-forge pytesseract 
+# ----------------------------------------------------------------------
+#
+if not syst.find("Win") == -1:
+    import pytesseract
+    pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+#
+# choose the config language if you want
+# config = r'--oem 3 --psm 6'
 
 if (len(sys.argv) - 1) <= 0:
     print("please pass the filename for the screenshot you want to analyse")
@@ -52,6 +59,7 @@ ApricotValue = 11
 PearValue = 12
 AppleValue = 13
 RaspberryValue = 14
+CherryValue = 15
 NumOfFlavors = 20                                                       # leave for 6 spare flavors for now
 
 # ------------- Get alternate source if there is one -------------------
@@ -79,24 +87,22 @@ variationStart = (NumOfVariants*NumOfFlavors) + NumOfFlavors
 # we are just identifying the single product for eliminaiton from the rank
 # ignores type and flavor attribute (dont have flavors)
 #
-CreamValue = 0
+noProduct = -1                                                          # used to reset the product in cases where the string can mean supplier for example
+CreamValue = 0                                                          # cream / flower (used for fior di latte) 
 ButterValue = 1
 CheeseValue = 2
 SoapValue = 3
 ShampooValue = 4
-#- not in engine (an italian cheese)
-Ravaggiolo = 5
+Ravaggiolo = 5                                                          #- not in engine (an italian cheese)
 Balsam = 6
 Liqor = 7
-# grappa / grappe
-Grappa = 8
-# cream / flower (used for fior di latte)
+Grappa = 8                                                              # grappa / grappe
 Shower = 9
 Kefir = 10
 Biscuit = 11
 # yogurt is last one in this sequence as it can also have a flavor attribute 
 # (in all these cases above we are ignoring the flavor attribute)
-# we are still ignoring the type attribute
+# we are still ignoring the type attribute for yoghurt in this example
 #
 Yogurt = 12
 # chocolate is a product derived from phrasing and this time we are listing 
@@ -107,6 +113,14 @@ NumOfProducts = ChocoBar
 
 wrongStart = ((NumOfVariants*NumOfFlavors) + (NumOfFlavors*2)) 
 
+# set a flag stating remove yoghurt this is in the situation
+# were we saw milk with a contact address as 
+# office@fructjoghurt.com
+# we say if we got a @ or a . attached to that word remove and ignore the word
+# for the whole ocr iteration
+#
+productRemove = 0                                                       # this product contains a negative removal string as described above if we see that this is set to the productId
+                                                            
 # ------- read in the requested iamge ---------
 fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
 if os.path.isfile(fileNam) == False:
@@ -149,7 +163,7 @@ angleStep = 0.1
 #
 # image 24.jpg needed value of 15 this was enough to read tilted vollmilch
 #
-numOfIerations = 10
+numOfIerations = 30
 # (10 * 0.1) means +/- 1 degree in either direction 
 
 # flags for searching for a match are initialised at no match
@@ -203,37 +217,41 @@ for x in range(numOfIerations):
     #gbresult = gaussian_filter(erosion, sigma=-2)
 
     # ------------------ for linux -------------------------------------
-    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
-        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.pnm', im_rgb)
-    else:
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.jpg', ~gbresult) 
+    if not syst.find("Lin") == -1:
+        if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is ocrad ocr instead
+           im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+           mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.pnm', im_rgb)
+        else:                                                           # argument is country code 
+           mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_lefti.jpg', ~gbresult) 
 
-    if (len(sys.argv)-1) == 1:
-        f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_lefti.jpg')
-    elif (len(sys.argv)-1) == 2:                                        # argument is country code or ocrad
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_lefti ' + sys.argv[2]     
-        f = os.popen(cmd)
-    strFound = f.read()
+        if (len(sys.argv)-1) == 1:
+            f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_lefti.jpg')
+        elif (len(sys.argv)-1) == 2:                                    # argument is country code or ocrad
+            cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_lefti ' + sys.argv[2]     
+            f = os.popen(cmd)
+        strFound = f.read()
     #
     # --------------------- for windows --------------------------------
-    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    elif not syst.find("Win") == -1:
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
     #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
-    #if (len(sys.argv)-1) == 2:
-	#    if not sys.argv[2].find("fr") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
-    #    elif not sys.argv[2].find("de") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
-    #    elif not sys.argv[2].find("it") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
-    #    elif not sys.argv[2].find("jp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
-    #    elif not sys.argv[2].find("ru") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
-    #    elif not sys.argv[2].find("sp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
-    #else:
-    #    strFound = pytesseract.image_to_string(im_rgb)		 
+        if (len(sys.argv)-1) == 2:
+            if not sys.argv[2].find("fr") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+            elif not sys.argv[2].find("de") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+            elif not sys.argv[2].find("it") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+            elif not sys.argv[2].find("jp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+            elif not sys.argv[2].find("ru") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+            elif not sys.argv[2].find("sp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+            else:
+                strFound = pytesseract.image_to_string(im_rgb)				
+        else:
+            strFound = pytesseract.image_to_string(im_rgb)		 
                                                  
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
     #
@@ -266,7 +284,7 @@ for x in range(numOfIerations):
     
     # cream must be exact matched to remove creamery being a match
     pattern = re.compile(r"\bcream\b")
-     
+            
     if not strFound.find("BUTTER") == -1 or not strFound.find("Butter") == -1  or not strFound.find("butter") == -1:
 	    productWrong = ButterValue
     elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
@@ -285,6 +303,23 @@ for x in range(numOfIerations):
         productWrong = CreamValue  
     elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
         productWrong = Yogurt
+        # ----- look to see if this is true a product description ------
+        #
+        # if we found Yogurt we possibly eliminate it being the product
+        # as some email is farmer@yogurtcremery.com
+        # or web address might be www.yogurtfarms.com
+        # it may still be milk so set the remove status to yogurt and
+        # decide on the combination of keywords read from the label at 
+        # the end of the sequence
+        #  
+        i = 0                                          
+        inWordArray = strFound.split()
+        sizeOfList = len(inWordArray)
+        while i < sizeOfList:
+            #if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 and not inWordArray[i].find(".") == -1):	# found product yogurt between @ and .		         
+            if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 or not inWordArray[i].find(".") == -1):	# found product containing @ or . with yogurt (ocr stream)	
+                productRemove == Yogurt                                 # suggest removing product if no flavor found and we found keyword milk (logic is at end after all picture iterations)
+            i += 1
     elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
         productWrong = SoapValue
     elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
@@ -293,9 +328,15 @@ for x in range(numOfIerations):
         productWrong = Kefir
     elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
         productWrong = Biscuit   
-                                  	    
+
+    if not strFound.find("RemovYog") == -1:                             # if this is seen in the stream we want to remove that product as it was for example and email not the product
+        productRemove = Yogurt                                          # example pic office@naturjoghurt.at (you must add other products if you have emails like mrX@cheeseprods.com and also sell milk
+        
+    if not strFound.find("КОЗЬЕ") == -1:
+        productType = GoatValue
+        		                              	    
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
-    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("KO3bE") == -1 or not strFound.find("козье") == -1:
         productType = GoatValue
     elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
         productType = SheepValue
@@ -305,8 +346,14 @@ for x in range(numOfIerations):
         productType = DonkeyValue
     elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
         productType = BuffaloValue
-                
-    if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
+
+    # in german the word "packen" came up as possibly "grapple" this meant in we got apple flavor when it wasnt
+    # so match apple exactly maybe should be others too.. not needed in the challenge
+    #
+    pattern = re.compile(r"\bapple\b")
+    pattern2 = re.compile(r"\bmint\b")
+                        
+    if re.search(pattern2, strFound.lower()):  
         productFlavor = MintValue
     elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
@@ -330,10 +377,12 @@ for x in range(numOfIerations):
         productFlavor = ApricotValue
     elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
         productFlavor = PearValue
-    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+    elif re.search(pattern, strFound.lower()):                          # apple must be exact
         productFlavor = AppleValue
     elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
         productFlavor = RaspberryValue
+    elif not strFound.find("Cherr") == -1 or not strFound.find("CHERR") == -1 or not strFound.find("cherr") == -1:  # cherry or cherries
+        productFlavor = CherryValue
         
     #
     # ==================================================================
@@ -362,7 +411,7 @@ for x in range(numOfIerations):
 
     # ------------- look for general product match ---------------------           
     # look for general product (russian text translation was not working so hardcoded it)
-    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("молоко") == -1:
+    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("МОЛОКО") == -1 or not strFound.find("молоко") == -1:
         generalFound = 0
     #
     # ------------- example of phrase selection ------------------------
@@ -412,38 +461,41 @@ for x in range(numOfIerations):
     #
     # --------------- for linux ----------------------------------------
     #
-    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
-        im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.pnm', im_rgb)
-    else:
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.jpg', gbresult) 
+    if not syst.find("Lin") == -1:
+        if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+            im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.pnm', im_rgb)
+        else:
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_left.jpg', gbresult) 
         		
-    if (len(sys.argv)-1) == 1:
-        f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_left.jpg')
-    elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_left ' + sys.argv[2] 
-        f = os.popen(cmd)
-    strFound = f.read()
+        if (len(sys.argv)-1) == 1:
+            f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_left.jpg')
+        elif (len(sys.argv)-1) == 2:
+            cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_left ' + sys.argv[2] 
+            f = os.popen(cmd)
+        strFound = f.read()
     #
     # --------------------- for windows --------------------------------
     #
-    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    elif not syst.find("Win") == -1:
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
     #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
-    #if (len(sys.argv)-1) == 2:
-	#    if not sys.argv[2].find("fr") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
-    #    elif not sys.argv[2].find("de") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
-    #    elif not sys.argv[2].find("it") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
-    #    elif not sys.argv[2].find("jp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
-    #    elif not sys.argv[2].find("ru") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
-    #    elif not sys.argv[2].find("sp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
-    #else:
-    #    strFound = pytesseract.image_to_string(im_rgb)
+        if (len(sys.argv)-1) == 2:
+            if not sys.argv[2].find("fr") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+            elif not sys.argv[2].find("de") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+            elif not sys.argv[2].find("it") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+            elif not sys.argv[2].find("jp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+            elif not sys.argv[2].find("ru") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+            elif not sys.argv[2].find("sp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+            else:
+                strFound = pytesseract.image_to_string(im_rgb)
+
     print ("The following text rotating forward invert: ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -491,6 +543,23 @@ for x in range(numOfIerations):
         productWrong = CreamValue  
     elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
         productWrong = Yogurt
+        # ----- look to see if this is true a product description ------
+        #
+        # if we found Yogurt we possibly eliminate it being the product
+        # as some email is farmer@yogurtcremery.com
+        # or web address might be www.yogurtfarms.com
+        # it may still be milk so set the remove status to yogurt and
+        # decide on the combination of keywords read from the label at 
+        # the end of the sequence
+        #  
+        i = 0                                          
+        inWordArray = strFound.split()
+        sizeOfList = len(inWordArray)
+        while i < sizeOfList:
+            #if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 and not inWordArray[i].find(".") == -1):	# found product yogurt between @ and .		         
+            if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 or not inWordArray[i].find(".") == -1):	# found product containing @ or . with yogurt (ocr stream)	
+                productRemove == Yogurt                                 # suggest removing product if no flavor found and we found keyword milk (logic is at end after all picture iterations)
+            i += 1
     elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
         productWrong = SoapValue
     elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
@@ -500,8 +569,14 @@ for x in range(numOfIerations):
     elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
         productWrong = Biscuit 
 
+    if not strFound.find("RemovYog") == -1:                             # if this is seen in the stream we want to remove that product as it was for example and email not the product
+        productRemove = Yogurt                                          # example pic office@naturjoghurt.at (you must add other products if you have emails like mrX@cheeseprods.com and also sell milk
+        
+    if not strFound.find("КОЗЬЕ") == -1:
+        productType = GoatValue
+        		
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
-    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("KO3bE") == -1 or not strFound.find("козье") == -1:
         productType = GoatValue
     elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
         productType = SheepValue
@@ -511,8 +586,14 @@ for x in range(numOfIerations):
         productType = DonkeyValue
     elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
         productType = BuffaloValue
-                
-    if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
+
+    # in german the word "packen" came up as possibly "grapple" this meant in we got apple flavor when it wasnt
+    # so match apple exactly maybe should be others too.. not needed in the challenge
+    #
+    pattern = re.compile(r"\bapple\b")
+    pattern2 = re.compile(r"\bmint\b")
+                        
+    if re.search(pattern2, strFound.lower()):  
         productFlavor = MintValue
     elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
@@ -536,10 +617,12 @@ for x in range(numOfIerations):
         productFlavor = ApricotValue
     elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
         productFlavor = PearValue
-    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+    elif re.search(pattern, strFound.lower()):                          # apple must be exact
         productFlavor = AppleValue
     elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
         productFlavor = RaspberryValue
+    elif not strFound.find("Cherr") == -1 or not strFound.find("CHERR") == -1 or not strFound.find("cherr") == -1:  # cherry or cherries
+        productFlavor = CherryValue
     #
     # ==================================================================
     #
@@ -565,7 +648,7 @@ for x in range(numOfIerations):
     if not sFound1 == -1 and not sFound2 == -1:                         # full farm product manufacturer met
         stringFound = 0
     # look for general product 
-    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("молоко") == -1:
+    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("МОЛОКО") == -1 or not strFound.find("молоко") == -1:
         generalFound = 0
     #
     # found the string and the product on the label
@@ -601,37 +684,41 @@ for x in range(numOfIerations):
     
     # ------------------ for linux -------------------------------------
     #
-    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
-        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.pnm', im_rgb)
-    else:
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.jpg', ~gbresult)  
-    if (len(sys.argv)-1) == 1:
-        f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_righti.jpg')
-    elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_righti ' + sys.argv[2] 
-        f = os.popen(cmd)
-    strFound = f.read()
+    if not syst.find("Lin") == -1:
+        if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+            im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.pnm', im_rgb)
+        else:
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_righti.jpg', ~gbresult)  
+        if (len(sys.argv)-1) == 1:
+            f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_righti.jpg')
+        elif (len(sys.argv)-1) == 2:
+            cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_righti ' + sys.argv[2] 
+            f = os.popen(cmd)
+        strFound = f.read()
     #
     # --------------------- for windows --------------------------------
     #
-    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    elif not syst.find("Win") == -1:
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
     #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
-    #if (len(sys.argv)-1) == 2:
-	#    if not sys.argv[2].find("fr") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
-    #    elif not sys.argv[2].find("de") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
-    #    elif not sys.argv[2].find("it") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
-    #    elif not sys.argv[2].find("jp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
-    #    elif not sys.argv[2].find("ru") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
-    #    elif not sys.argv[2].find("sp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
-    #else:
-    #    strFound = pytesseract.image_to_string(im_rgb)
+        if (len(sys.argv)-1) == 2:
+            if not sys.argv[2].find("fr") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+            elif not sys.argv[2].find("de") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+            elif not sys.argv[2].find("it") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+            elif not sys.argv[2].find("jp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+            elif not sys.argv[2].find("ru") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+            elif not sys.argv[2].find("sp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+            else:
+                strFound = pytesseract.image_to_string(im_rgb)
+        else:
+            strFound = pytesseract.image_to_string(im_rgb)
     print ("The following text was read rotating backward invert : ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -680,6 +767,23 @@ for x in range(numOfIerations):
         productWrong = CreamValue  
     elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
         productWrong = Yogurt
+        # ----- look to see if this is true a product description ------
+        #
+        # if we found Yogurt we possibly eliminate it being the product
+        # as some email is farmer@yogurtcremery.com
+        # or web address might be www.yogurtfarms.com
+        # it may still be milk so set the remove status to yogurt and
+        # decide on the combination of keywords read from the label at 
+        # the end of the sequence
+        #  
+        i = 0                                          
+        inWordArray = strFound.split()
+        sizeOfList = len(inWordArray)
+        while i < sizeOfList:
+            #if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 and not inWordArray[i].find(".") == -1):	# found product yogurt between @ and .		         
+            if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 or not inWordArray[i].find(".") == -1):	# found product containing @ or . with yogurt (ocr stream)	
+                productRemove == Yogurt                                 # suggest removing product if no flavor found and we found keyword milk (logic is at end after all picture iterations)
+            i += 1
     elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
         productWrong = SoapValue
     elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
@@ -689,8 +793,14 @@ for x in range(numOfIerations):
     elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
         productWrong = Biscuit  
 
+    if not strFound.find("RemovYog") == -1:                             # if this is seen in the stream we want to remove that product as it was for example and email not the product
+        productRemove = Yogurt                                          # example pic office@naturjoghurt.at (you must add other products if you have emails like mrX@cheeseprods.com and also sell milk
+        
+    if not strFound.find("КОЗЬЕ") == -1:
+        productType = GoatValue
+        		
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
-    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("KO3bE") == -1 or not strFound.find("козье") == -1:
         productType = GoatValue
     elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
         productType = SheepValue
@@ -700,8 +810,14 @@ for x in range(numOfIerations):
         productType = DonkeyValue
     elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
         productType = BuffaloValue
-                
-    if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
+
+    # in german the word "packen" came up as possibly "grapple" this meant in we got apple flavor when it wasnt
+    # so match apple exactly maybe should be others too.. not needed in the challenge
+    #
+    pattern = re.compile(r"\bapple\b")
+    pattern2 = re.compile(r"\bmint\b")
+                        
+    if re.search(pattern2, strFound.lower()):  
         productFlavor = MintValue
     elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
@@ -725,10 +841,12 @@ for x in range(numOfIerations):
         productFlavor = ApricotValue
     elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
         productFlavor = PearValue
-    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+    elif re.search(pattern, strFound.lower()):                          # apple must be exact
         productFlavor = AppleValue
     elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
         productFlavor = RaspberryValue
+    elif not strFound.find("Cherr") == -1 or not strFound.find("CHERR") == -1 or not strFound.find("cherr") == -1:  # cherry or cherries
+        productFlavor = CherryValue
     #
     # ==================================================================
     #
@@ -754,7 +872,7 @@ for x in range(numOfIerations):
     if not sFound1 == -1 and not sFound2 == -1:                         # full farm product manufacturer met
         stringFound = 0
     # look for general product 
-    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("молоко") == -1:
+    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("МОЛОКО") == -1 or not strFound.find("молоко") == -1:
        generalFound = 0
     #
     # found the string and the product on the label
@@ -764,38 +882,42 @@ for x in range(numOfIerations):
 
     # ------------------- for linux ------------------------------------
     #
-    if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
-        im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.pnm', im_rgb)
-    else:
-        mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.jpg', gbresult)  
+    if not syst.find("Lin") == -1:
+        if (len(sys.argv)-1) == 2 and not sys.argv[2].find("ocrad") == -1:  # argument is country code or ocrad
+            im_rgb = cv2.cvtColor(gbresult, cv2.COLOR_BGR2RGB)
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.pnm', im_rgb)
+        else:
+            mb = cv2.imwrite('/mnt/c/linuxmirror/pic_rot_right.jpg', gbresult)  
         
-    if (len(sys.argv)-1) == 1:
-        f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_right.jpg')
-    elif (len(sys.argv)-1) == 2:
-        cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_right ' + sys.argv[2] 
-        f = os.popen(cmd)
-    strFound = f.read()
+        if (len(sys.argv)-1) == 1:
+            f = os.popen('/home/mark/pics/read_label_ocr.sh pic_rot_right.jpg')
+        elif (len(sys.argv)-1) == 2:
+            cmd = '/home/mark/pics/read_label_ocr.sh pic_rot_right ' + sys.argv[2] 
+            f = os.popen(cmd)
+        strFound = f.read()
     #
     # --------------------- for windows --------------------------------
     #
-    #im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
+    elif not syst.find("Win") == -1:
+        im_rgb = cv2.cvtColor(~gbresult, cv2.COLOR_BGR2RGB)
     #  if you use a custom config strFound = pytesseract.image_to_string(im_rgb, config=config)
-    #if (len(sys.argv)-1) == 2:
-	#    if not sys.argv[2].find("fr") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
-    #    elif not sys.argv[2].find("de") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
-    #    elif not sys.argv[2].find("it") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
-    #    elif not sys.argv[2].find("jp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
-    #    elif not sys.argv[2].find("ru") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
-    #    elif not sys.argv[2].find("sp") == -1: 
-    #        strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
-    #else:
-    #    strFound = pytesseract.image_to_string(im_rgb)
+        if (len(sys.argv)-1) == 2:
+            if not sys.argv[2].find("fr") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+fra')
+            elif not sys.argv[2].find("de") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+deu')   
+            elif not sys.argv[2].find("it") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+ita') 
+            elif not sys.argv[2].find("jp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+jpn') 
+            elif not sys.argv[2].find("ru") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+rus') 
+            elif not sys.argv[2].find("sp") == -1: 
+                strFound = pytesseract.image_to_string(im_rgb, lang='eng+spa')
+            else:
+                strFound = pytesseract.image_to_string(im_rgb)
+        else:
+            strFound = pytesseract.image_to_string(im_rgb)
     print ("The following text was read rotating backward  : ", strFound, angleInDegrees)
     #
     # ================ exit loop when condition is met =================
@@ -845,6 +967,23 @@ for x in range(numOfIerations):
         productWrong = CreamValue  
     elif not strFound.find("YOGURT") == -1 or not strFound.find("Yogurt") == -1 or not strFound.find("yogurt") == -1 or not strFound.find("yoghurt") == -1 or not strFound.find("Yoghurt") == -1 or not strFound.find("YOGHURT") == -1:
         productWrong = Yogurt
+        # ----- look to see if this is true a product description ------
+        #
+        # if we found Yogurt we possibly eliminate it being the product
+        # as some email is farmer@yogurtcremery.com
+        # or web address might be www.yogurtfarms.com
+        # it may still be milk so set the remove status to yogurt and
+        # decide on the combination of keywords read from the label at 
+        # the end of the sequence
+        #  
+        i = 0                                          
+        inWordArray = strFound.split()
+        sizeOfList = len(inWordArray)
+        while i < sizeOfList:
+            #if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 and not inWordArray[i].find(".") == -1):	# found product yogurt between @ and .		         
+            if (not inWordArray[i].find("Yogurt") == -1 or not inWordArray[i].find("YOGURT") == -1 or not inWordArray[i].find("yogurt") == -1) and (not inWordArray[i].find("@") == -1 or not inWordArray[i].find(".") == -1):	# found product containing @ or . with yogurt (ocr stream)	
+                productRemove == Yogurt                                 # suggest removing product if no flavor found and we found keyword milk (logic is at end after all picture iterations)
+            i += 1
     elif not strFound.find("SOAP") == -1 or not strFound.find("Soap") == -1 or not strFound.find("soap") == -1:
         productWrong = SoapValue
     elif not strFound.find("SHOWER") == -1 or not strFound.find("Shower") == -1 or not strFound.find("shower") == -1:
@@ -853,9 +992,15 @@ for x in range(numOfIerations):
         productWrong = Kefir
     elif not strFound.find("BISCUIT") == -1 or not strFound.find("Biscuit") == -1 or not strFound.find("biscuit") == -1:
         productWrong = Biscuit  
+
+    if not strFound.find("RemovYog") == -1:                             # if this is seen in the stream we want to remove that product as it was for example and email not the product
+        productRemove = Yogurt                                          # example pic office@naturjoghurt.at (you must add other products if you have emails like mrX@cheeseprods.com and also sell milk
         
+    if not strFound.find("КОЗЬЕ") == -1:                                # hack dont know why ?
+        productType = GoatValue
+        		        
 	# not correct if flavoured, amish wood milk, goat milk, sheep milk
-    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("козье") == -1:
+    if not strFound.find("Goat") == -1 or not strFound.find("goat") == -1 or not strFound.find("GOAT") == -1 or not strFound.find("KO3bE") == -1 or not strFound.find("козье") == -1:
         productType = GoatValue
     elif not strFound.find("Sheep") == -1 or not strFound.find("SHEEP") == -1 or not strFound.find("sheep") == -1 or not strFound.find("EWE") == -1 or not strFound.find("овече") == -1:
         productType = SheepValue
@@ -865,8 +1010,14 @@ for x in range(numOfIerations):
         productType = DonkeyValue
     elif not strFound.find("Buffalo") == -1 or not strFound.find("BUFFALO") == -1 or not strFound.find("buffalo") == -1:
         productType = BuffaloValue
-                
-    if not strFound.find("Mint") == -1 or not strFound.find("MINT") == -1: 
+
+    # in german the word "packen" came up as possibly "grapple" this meant in we got apple flavor when it wasnt
+    # so match apple exactly maybe should be others too.. not needed in the challenge
+    #
+    pattern = re.compile(r"\bapple\b")
+    pattern2 = re.compile(r"\bmint\b")
+                        
+    if re.search(pattern2, strFound.lower()):  
         productFlavor = MintValue
     elif not strFound.find("CHOCOLATE") == -1 or not strFound.find("Chocolate") == -1 or not strFound.find("chocolate") == -1:
         productFlavor = ChocValue
@@ -890,10 +1041,12 @@ for x in range(numOfIerations):
         productFlavor = ApricotValue
     elif not strFound.find("Pear") == -1 or not strFound.find("PEAR") == -1 or not strFound.find("pear") == -1:
         productFlavor = PearValue
-    elif not strFound.find("Apple") == -1 or not strFound.find("APPLE") == -1 or not strFound.find("apple") == -1:
+    elif re.search(pattern, strFound.lower()):                          # apple must be exact
         productFlavor = AppleValue
     elif not strFound.find("Raspberry") == -1 or not strFound.find("RASPBERRY") == -1 or not strFound.find("raspberry") == -1:
         productFlavor = RaspberryValue
+    elif not strFound.find("Cherr") == -1 or not strFound.find("CHERR") == -1 or not strFound.find("cherr") == -1:  # cherry or cherries
+        productFlavor = CherryValue
     #
     # ==================================================================
     #
@@ -919,7 +1072,7 @@ for x in range(numOfIerations):
     if not sFound1 == -1 and not sFound2 == -1:                         # full farm product manufacturer met
         stringFound = 0
     # look for general product 
-    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("молоко") == -1:
+    if not strFound.find("Milk") == -1 or not strFound.find("MILK") == -1 or not strFound.find("Mik") == -1 or not strFound.find("milk") == -1 or not strFound.find("МОЛОКО") == -1 or not strFound.find("молоко") == -1:
        generalFound = 0
     #
     # found the string and the product on the label
@@ -935,6 +1088,11 @@ for x in range(numOfIerations):
 # we are able to read the bottles in eng,fra,jpn,rus,ger,spa,ita
 #
 # useful debug
+
+if productRemove == Yogurt and generalFound == 0:                       # we say @ or . in the string containing yoghurt eliminate the product if we also had milk
+    if productFlavor == -1:                                             # if it had a flavor it is defined as remaining as yoghurt otherwise nullify the product
+        productWrong = noProduct
+    	
 print("==== product type %s =====" % productType)
 print("==== product flavor %s =====" % productFlavor)
 print("==== product wrong %s =====" % productWrong)
@@ -945,10 +1103,13 @@ if chocoPhrase == 2 and noFlavor == 0:                                  # we saw
     print(retVal)	
 elif not productWrong == -1:                                            # a wrong product word had been detected which eliminates the product
     if productWrong == Yogurt:
-	    retVal = wrongStart + productWrong + productFlavor              # because yoghurt also has a flavor so list them
+        if not productFlavor == -1:
+	        retVal = wrongStart + productWrong + productFlavor          # because yoghurt also has a flavor so list them
+        else:
+            retVal = wrongStart + productWrong                          # yoghurt without a flavour
     else:
         retVal = wrongStart + productWrong                              # wrong product was found i.e butter (even if it says organic whole milk farm)
-        print(retVal)
+    print(retVal)
 elif productFlavor == -1:                                               # no product variance occurred
     if not stringFound == -1 and not productFound == -1:                # the product and supplier was found - dedicated farm, organic whole milk
 	    print("1")
