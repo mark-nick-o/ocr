@@ -41,3 +41,8 @@ a script will be made in an attempt to read the circle text if possible
 
 if you got espeak you can read them out or write them to a brialle keyboard if you're for example use this nice one 
 https://github.com/AaditT/braille
+
+animate
+============
+
+a script example on how to read a bunch of pdf files mirror them clear the backgrounds, rotate and place on backgrounds and produce a series of animation frames as you like
