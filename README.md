@@ -45,4 +45,4 @@ https://github.com/AaditT/braille
 animate
 ============
 
-a script example on how to read a bunch of png files mirror them clear the backgrounds, rotate and place on backgrounds and produce a series of animation frames as you like
+a script example on how to read a bunch of png files mirror them clear the backgrounds, rotate and place in a new scene and produce a series of animation frames as you like
