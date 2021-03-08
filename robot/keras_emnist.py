@@ -1,4 +1,4 @@
-# modified from Code source: dmitryelj@gmail.com
+# Code source: dmitryelj@gmail.com
 # https://habr.com/ru/post/466565/
 
 import os
@@ -177,9 +177,10 @@ def letters_extract(image_file: str, out_size=28):
     ret, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY)
     img_erode = cv2.erode(thresh, np.ones((3, 3), np.uint8), iterations=1)
 
-    # Get contours
-    contours, hierarchy = cv2.findContours(img_erode, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-
+    # Get contours CHAIN_APPROX_SIMPLE
+    #contours, hierarchy = cv2.findContours(img_erode, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(img_erode, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
     output = img.copy()
 
     letters = []
@@ -249,8 +250,17 @@ if __name__ == "__main__":
         print("please pass the filename for the screenshot you want to read with keras emnist or --TRAIN")
         sys.exit()
     
-    if not sys.argv[1].find("--TRAIN") == -1:                           # to train the model pass --TRAIN    
-        model = emnist_model()
+    if not sys.argv[1].find("--TRAIN") == -1:                           # to train the model pass --TRAIN   
+        if (len(sys.argv) - 1) == 2:
+            if int(sys.argv[2]) == 3:
+                print("----- using model 3 -----")
+                model = emnist_model3() 
+            elif int(sys.argv[2]) == 2:
+                print("----- using model 2 -----")
+                model = emnist_model2()
+            else: 	
+                print("----- using model 1 -----")							
+                model = emnist_model()
         emnist_train(model)
         model.save('emnist_letters.h5')
         sys.exit()
@@ -267,3 +277,4 @@ if __name__ == "__main__":
         
     s_out = img_to_str(model, fileNam)
     print(s_out)
+    
