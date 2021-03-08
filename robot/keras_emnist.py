@@ -1,7 +1,8 @@
-# Code source: dmitryelj@gmail.com
+# modified from Code source: dmitryelj@gmail.com
 # https://habr.com/ru/post/466565/
 
 import os
+import sys
 # Force CPU
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 # Debug messages
@@ -114,7 +115,9 @@ def emnist_model3():
 def emnist_train(model):
     t_start = time.time()
 
-    emnist_path = 'D:\\Temp\\1\\'
+    #emnist_path = 'D:\\Temp\\1\\'
+    emnist_path = '/mnt/c/linuxmirror/emnist/'
+    
     X_train = idx2numpy.convert_from_file(emnist_path + 'emnist-byclass-train-images-idx3-ubyte')
     y_train = idx2numpy.convert_from_file(emnist_path + 'emnist-byclass-train-labels-idx1-ubyte')
 
@@ -264,4 +267,3 @@ if __name__ == "__main__":
         
     s_out = img_to_str(model, fileNam)
     print(s_out)
-
