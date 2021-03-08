@@ -142,6 +142,11 @@ case $2 in
     [ "$numFields" -eq 2 ] && [ -f /mnt/c/linuxmirror/$1 ] && ocrad --format=utf8 /mnt/c/linuxmirror/$1 
     ;;
     
+   # choose to use the tensorflow ocr instead
+  keras)
+    python $HOME/keras_emnist.py $1
+    ;;
+    
   *)
     [ -f $1-eng.txt ] && rm $1-eng.txt 
     numFields=`echo $1 | awk '-F.' '{ print NF }'`
