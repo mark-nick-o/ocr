@@ -111,8 +111,27 @@ def emnist_model3():
     model.compile(loss='categorical_crossentropy', optimizer=RMSprop(lr=0.001, rho=0.9, epsilon=1e-08, decay=0.0), metrics=['accuracy'])
     return model
 
+def emnist_model4():
+    model = Sequential()
+    model.add(Convolution2D(filters=512, kernel_size=(3, 3), padding='same', input_shape=(28, 28, 1), activation='relu'))
+    model.add(Dropout(0.1))
+    model.add(Convolution2D(filters=256, kernel_size=(3, 3), padding='same', activation='relu'))
+    model.add(Dropout(0.1))    
+    #model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Convolution2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+    model.add(Dropout(0.1)) 
+    model.add(Convolution2D(filters=62, kernel_size=(3, 3), padding='same', activation='softmax'))
+    #model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+    #model.add(Dropout(0.25))
 
-def emnist_train(model):
+    model.add(Flatten())
+    model.add(Dense(512, activation="relu"))
+    model.add(Dropout(0.5))
+    model.add(Dense(len(emnist_labels), activation="softmax"))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    return model
+
+def emnist_train(model,modelType):
     t_start = time.time()
 
     #emnist_path = 'D:\\Temp\\1\\'
@@ -146,12 +165,16 @@ def emnist_train(model):
     y_test_cat = keras.utils.to_categorical(y_test, len(emnist_labels))
 
     # Set a learning rate reduction
-    learning_rate_reduction = keras.callbacks.ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=1, factor=0.5, min_lr=0.00001)
-
+    #learning_rate_reduction = keras.callbacks.ReduceLROnPlateau(monitor='val_acc', patience=3, verbose=1, factor=0.5, min_lr=0.00001)
+    learning_rate_reduction = keras.callbacks.ReduceLROnPlateau(monitor='val_accuracy', patience=3, verbose=1, factor=0.5, min_lr=0.00001)
+    
     # Required for learning_rate_reduction:
     keras.backend.get_session().run(tf.global_variables_initializer())
+    if modelType == 4:
+        model.fit(X_train, x_train_cat, validation_data=(X_test, y_test_cat), callbacks=[learning_rate_reduction], batch_size=256, epochs=10)
+    else:
+        model.fit(X_train, x_train_cat, validation_data=(X_test, y_test_cat), callbacks=[learning_rate_reduction], batch_size=64, epochs=30)
 
-    model.fit(X_train, x_train_cat, validation_data=(X_test, y_test_cat), callbacks=[learning_rate_reduction], batch_size=64, epochs=30)
     print("Training done, dT:", time.time() - t_start)
 
 
@@ -255,13 +278,19 @@ if __name__ == "__main__":
             if int(sys.argv[2]) == 3:
                 print("----- using model 3 -----")
                 model = emnist_model3() 
+                emnist_train(model,3)
             elif int(sys.argv[2]) == 2:
                 print("----- using model 2 -----")
                 model = emnist_model2()
+                emnist_train(model,2)
+            elif int(sys.argv[2]) == 4:
+                print("----- using model 4 -----")
+                model = emnist_model4()
+                emnist_train(model,4)
             else: 	
                 print("----- using model 1 -----")							
                 model = emnist_model()
-        emnist_train(model)
+                emnist_train(model,0)
         model.save('emnist_letters.h5')
         sys.exit()
         
@@ -277,4 +306,3 @@ if __name__ == "__main__":
         
     s_out = img_to_str(model, fileNam)
     print(s_out)
-    
