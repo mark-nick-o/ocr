@@ -49,7 +49,7 @@ if __name__ == '__main__':
             # ------- read in the requested iamge ---------
             fileNam = "/mnt/c/linuxmirror/" + sys.argv[2]
             if os.path.isfile(fileNam) == False:
-	            fileNam = fileNam + ".wav"
+                fileNam = fileNam + ".wav"
             if os.path.isfile(fileNam) == False:
                 print("invalid file name or path %s" % fileNam)	
                 sys.exit()
@@ -271,7 +271,7 @@ if __name__ == '__main__':
     
         url = 'https://tts.mimi.fd.ai/speech_synthesis'                 # url and port on mimi to get decryption of sound to text
         user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'             # to suggest we are a browser
-        access_key_str = 'Bearer' + str(ACCESS_KEY);                        # tag bearer to the access key we are using
+        access_key_str = 'Bearer ' + str(ACCESS_KEY);                        # tag bearer to the access key we are using
    
         #
         # the https headers for the post
