@@ -48,7 +48,8 @@ def hipass(x, samplerate, fp, fs, gpass, gstop):
     ws = fs / fn                                                        # Normalized Stopband End Frequency with Nyquist Frequency
     N, Wn = signal.buttord(wp, ws, gpass, gstop)                        # Calculate normalized frequency of order and Butterworth
     b, a = signal.butter(N, Wn, "high")                                 # Calculate the numerator and denominator of the filter transfer function
-    y = signal.filtfilt(b, a, x)                                        # filter the signal
+    if ((len(a) >= 2) and (len(x) >= 2)) :
+        y = signal.filtfilt(b, a, x)                                        # filter the signal
     return y
 
 # open sound file     
