@@ -28,7 +28,7 @@ if __name__ == '__main__':
 # ========= check the options passed had at least 1 parameter (file) ===
     if (len(sys.argv) - 1) <= 0:
         print("Please pass the filename for the screenshot you want to analyse plus 0/1 <num> \n where 0=left 1=right rotation \n <num> is angle of extra rotation if needed")
-        sys.exit()
+        sys.exit(ERR_NO_FILE)
 
 # ========= define error return codes from the script ==================
     ERR_NO_FILE = 1                                                     # you may query this with echo $? in shell
