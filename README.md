@@ -42,6 +42,10 @@ a script will be made in an attempt to read the circle text if possible
 if you got espeak you can read them out or write them to a brialle keyboard if you're for example use this nice one 
 https://github.com/AaditT/braille
 
+It also listens to the requests and using google speak or mimi rest API attempts to understand what was said and find that request
+
+(work is still in progress on this project)
+
 animate
 ============
 
