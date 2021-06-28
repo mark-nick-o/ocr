@@ -21,7 +21,8 @@ if __name__ == "__main__":
         sys.exit()
        
     r = sr.Recognizer()                                                 # initialize the recognizer
-
+    progHomeMimi = '/home/mark/pics/mimi_trans_sound.sh '
+    
     if (len(sys.argv) - 1) == 2:                                        # passed -MIC <duration>
         with sr.Microphone() as source:
             r.adjust_for_ambient_noise(source, duration=1)
@@ -31,7 +32,7 @@ if __name__ == "__main__":
             text = r.recognize_google(audio_data,language="en-US")      # recognize (convert from speech to text) - english USA 
             print("Decoded Text : {}".format(text))			
         except Exception as ex:
-            print(ex)            
+            print(ex) 
     else:  
         # ------- read in the requested sound file ---------
         fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
@@ -47,8 +48,10 @@ if __name__ == "__main__":
             text = r.recognize_google(audio_data,language="en-US")      # recognize (convert from speech to text) - english USA 
             print("Decoded Text : {}".format(text))			
         except Exception as ex:
-            print(ex)     
+            print(ex) 
+            cmd = progHomeMimi + fileNam                                # run the mimi translator on the input file to see if we can get result (use each possible engine)
+            f = os.popen(cmd) 
             
-    text = r.recognize_google(audio_data,language="en-US")              # recognize (convert from speech to text) - english USA            
+    #text = r.recognize_google(audio_data,language="en-US")              # recognize (convert from speech to text) - english USA            
     #text = r.recognize_google(audio_data,language="es-ES")              # recognize (convert from speech to text) - spanish
     print(text)
