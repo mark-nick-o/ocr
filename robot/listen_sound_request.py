@@ -11,6 +11,9 @@ import speech_recognition as sr
 # sudo apt-get install python-pyaudio python3-pyaudio
 # pip3 install pyaudio
 #
+# if the speech recognition using the google engine fails we revert to use the 
+# mimi text to speech engine or kaldi (TO BE COMPLETED)
+#
 if __name__ == "__main__":
 
     if (len(sys.argv) - 1) <= 0:
@@ -30,7 +33,7 @@ if __name__ == "__main__":
         except Exception as ex:
             print(ex)            
     else:  
-        # ------- read in the requested iamge ---------
+        # ------- read in the requested sound file ---------
         fileNam = "/mnt/c/linuxmirror/" + sys.argv[1]
         if os.path.isfile(fileNam) == False:
             fileNam = fileNam + ".wav"
