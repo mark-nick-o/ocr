@@ -50,7 +50,7 @@ import phonemizer.separator as separator
 from phonemizer.separator import Separator
 
 class PhoneSpeaker(object):
-    """Класс для распознавания речи с помощью алгоритма nnet3"""
+    """A class for converting text into a format better for a speech recognition engine """
 
     def __init__(self, eng, lan, pun, text):
     
